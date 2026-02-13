@@ -27,7 +27,7 @@ const productSchema = new mongoose.Schema(
     category: {
       type: String,
       required: true,
-      enum: ["Grocery", "Electronics", "Clothes", "Food"]
+      enum: ["Grocery", "Electronics", "Clothes", "Food", "Others"]
     },
     inStock: {
     type: Boolean,
