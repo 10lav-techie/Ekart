@@ -29,6 +29,11 @@ const productSchema = new mongoose.Schema(
       required: true,
       enum: ["Grocery", "Electronics", "Clothes", "Food"]
     },
+    inStock: {
+    type: Boolean,
+    default: true,
+    },
+
     isNew: {
       type: Boolean,
       default: false,

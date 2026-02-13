@@ -13,6 +13,10 @@ const sellerSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    phone: { type: String },
+    bannerImage: { type: String },
+    logoImage: { type: String },
+
     address: {
         type: String,
         required: true,
@@ -47,6 +51,14 @@ const sellerSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    resetPasswordToken: {
+      type: String,
+    },
+
+    resetPasswordExpire: {
+      type: Date,
+    },
+
   },
   { timestamps: true }
 );
