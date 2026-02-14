@@ -1,6 +1,6 @@
 // Product CRUD logic
 import Product from "../models/Product.js";
-
+import Seller from "../models/Seller.js";
 /**
  * Add Product
  */
@@ -198,6 +198,26 @@ export const getProductsBySeller = async (req, res) => {
         message: "Shop not found or no products"
       });
     }
+    // Increment monthly visits
+    const seller = await Seller.findById(sellerId);
+
+    if (seller) {
+      const now = new Date();
+      const lastReset = new Date(seller.lastVisitReset);
+
+      // If month changed → reset counter
+      if (
+        now.getMonth() !== lastReset.getMonth() ||
+        now.getFullYear() !== lastReset.getFullYear()
+      ) {
+        seller.monthlyVisits = 1;
+        seller.lastVisitReset = now;
+      } else {
+        seller.monthlyVisits += 1;
+      }
+
+      await seller.save();
+    }
 
     res.json(products);
   } catch (error) {
@@ -254,6 +274,46 @@ export const getShopsByCategory = async (req, res) => {
     res.json(shops);
 
   } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getNearbyShops = async (req, res) => {
+  try {
+    const { lat, lng, city, district } = req.query;
+
+    if (!lat || !lng) {
+      return res.status(400).json({ message: "Location required" });
+    }
+
+    const query = {
+      location: {
+        $exists: true,
+        $ne: null,
+      },
+    };
+
+    if (city) query.city = city;
+    if (district) query.district = district;
+
+    const shops = await Seller.find({
+      ...query,
+      location: {
+        $near: {
+          $geometry: {
+            type: "Point",
+            coordinates: [parseFloat(lng), parseFloat(lat)],
+          },
+          $maxDistance: 30000,
+        },
+      },
+    }).select(
+      "shopName city district area bannerImage logoImage location"
+    );
+
+    res.json(shops);
+  } catch (error) {
+    console.error("NEARBY ERROR:", error);
     res.status(500).json({ message: error.message });
   }
 };

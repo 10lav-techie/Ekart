@@ -10,7 +10,8 @@ import sendEmail from "../utils/sendEmail.js";
  */
 export const registerSeller = async (req, res) => {
   try {
-    const { ownerName, shopName, city, district, area, address, email, password, phone, bannerImage, logoImage } = req.body;
+    const { ownerName, shopName, city, district, area, address, email, password, phone, bannerImage, logoImage, latitude,longitude } = req.body;
+
 
 
     const existingSeller = await Seller.findOne({ email });
@@ -28,6 +29,13 @@ export const registerSeller = async (req, res) => {
       city,
       area,
       address,
+      location: latitude && longitude
+        ? {
+            type: "Point",
+            coordinates: [longitude, latitude],
+          }
+        : undefined,
+
       email,
       password: hashedPassword,
       phone,
@@ -105,6 +113,9 @@ export const updateSellerProfile = async (req, res) => {
       district,
       area,
       address,
+      lat,
+      lng,
+
       phone,
       bannerImage,
       logoImage,
@@ -125,7 +136,12 @@ export const updateSellerProfile = async (req, res) => {
     seller.phone = phone;
     seller.bannerImage = bannerImage;
     seller.logoImage = logoImage;
-
+    if (lat && lng) {
+      seller.location = {
+        type: "Point",
+        coordinates: [parseFloat(lng), parseFloat(lat)],
+      };
+    }
     const updatedSeller = await seller.save();
 
     res.json(updatedSeller);

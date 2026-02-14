@@ -1,7 +1,7 @@
 // Product routes
 import express from "express";
 import { protect } from "../middleware/authMiddleware.js";
-
+import { getNearbyShops } from "../controllers/productController.js";
 import {
   addProduct,
   getMyProducts,
@@ -19,6 +19,8 @@ const router = express.Router();
 router.get("/public", getPublicProducts);
 router.get("/shop/:sellerId", getProductsBySeller);
 router.get("/shops-by-category", getShopsByCategory);
+router.get("/nearby", getNearbyShops);
+
 
 
 // Seller protected routes
