@@ -211,17 +211,19 @@ export const getShopsByCategory = async (req, res) => {
   try {
     const { category, city, district } = req.query;
 
-    if (!category) {
-      return res.status(400).json({ message: "Category required" });
+    const filter = {};
+
+    // Category optional
+    if (category) {
+      filter.category = category;
     }
 
-    let products = await Product.find({ category })
-      .populate(
-        "seller",
-        "shopName city district area address phone bannerImage logoImage"
-      );
+    let products = await Product.find(filter).populate(
+      "seller",
+      "shopName city district area address phone bannerImage logoImage"
+    );
 
-    // Filter by city
+    // Filter by city (if provided)
     if (city) {
       products = products.filter(
         (product) =>
@@ -229,7 +231,7 @@ export const getShopsByCategory = async (req, res) => {
       );
     }
 
-    // Filter by district
+    // Filter by district (if provided)
     if (district) {
       products = products.filter(
         (product) =>
@@ -237,13 +239,15 @@ export const getShopsByCategory = async (req, res) => {
       );
     }
 
-    // Extract unique sellers
+    // Extract unique shops
     const uniqueShops = [];
     const shopIds = new Set();
 
     for (const product of products) {
-      if (!shopIds.has(product.seller._id.toString())) {
-        shopIds.add(product.seller._id.toString());
+      const sellerId = product.seller._id.toString();
+
+      if (!shopIds.has(sellerId)) {
+        shopIds.add(sellerId);
         uniqueShops.push(product.seller);
       }
     }
