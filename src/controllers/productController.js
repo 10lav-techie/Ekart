@@ -211,48 +211,47 @@ export const getShopsByCategory = async (req, res) => {
   try {
     const { category, city, district } = req.query;
 
-    const filter = {};
+    const matchStage = {};
 
-    // Category optional
-    if (category) {
-      filter.category = category;
-    }
+    if (category) matchStage.category = category;
 
-    let products = await Product.find(filter).populate(
-      "seller",
-      "shopName city district area address phone bannerImage logoImage"
-    );
+    const shops = await Product.aggregate([
+      { $match: matchStage },
 
-    // Filter by city (if provided)
-    if (city) {
-      products = products.filter(
-        (product) =>
-          product.seller.city?.toLowerCase() === city.toLowerCase()
-      );
-    }
+      {
+        $lookup: {
+          from: "sellers",
+          localField: "seller",
+          foreignField: "_id",
+          as: "seller",
+        },
+      },
 
-    // Filter by district (if provided)
-    if (district) {
-      products = products.filter(
-        (product) =>
-          product.seller.district?.toLowerCase() === district.toLowerCase()
-      );
-    }
+      { $unwind: "$seller" },
 
-    // Extract unique shops
-    const uniqueShops = [];
-    const shopIds = new Set();
+      {
+        $match: {
+          ...(city && { "seller.city": city }),
+          ...(district && { "seller.district": district }),
+        },
+      },
 
-    for (const product of products) {
-      const sellerId = product.seller._id.toString();
+      {
+        $group: {
+          _id: "$seller._id",
+          shopName: { $first: "$seller.shopName" },
+          city: { $first: "$seller.city" },
+          district: { $first: "$seller.district" },
+          area: { $first: "$seller.area" },
+          address: { $first: "$seller.address" },
+          phone: { $first: "$seller.phone" },
+          bannerImage: { $first: "$seller.bannerImage" },
+          logoImage: { $first: "$seller.logoImage" },
+        },
+      },
+    ]);
 
-      if (!shopIds.has(sellerId)) {
-        shopIds.add(sellerId);
-        uniqueShops.push(product.seller);
-      }
-    }
-
-    res.json(uniqueShops);
+    res.json(shops);
 
   } catch (error) {
     res.status(500).json({ message: error.message });
