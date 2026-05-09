@@ -1,90 +1,196 @@
-// Seller mongoose schema
+
 import mongoose from "mongoose";
 
-const sellerSchema = new mongoose.Schema(
-  {
-    ownerName: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    shopName: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    phone: { type: String },
-    bannerImage: { type: String },
-    logoImage: { type: String },
-
-    address: {
+const sellerSchema =
+  new mongoose.Schema(
+    {
+      // =====================================================
+      // OWNER INFO
+      // =====================================================
+      ownerName: {
         type: String,
+
         required: true,
+
         trim: true,
-    },
+      },
 
-    city: {
-      type: String,
-      required: true,
-      trim: true,
-      index: true,
-    },
-    district: {
-      type: String,
-      required: true,
-      trim: true,
-      index: true,
-    },
-    area: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    location: {
-      type: {
+      // =====================================================
+      // LINKED USER (OPTIONAL)
+      // =====================================================
+      userId: {
+        type:
+          mongoose.Schema
+            .Types.ObjectId,
+
+        ref: "User",
+
+        required: false,
+
+        default: null,
+      },
+
+      // =====================================================
+      // SHOP INFO
+      // =====================================================
+      shopName: {
         type: String,
-        enum: ["Point"],
+
+        required: true,
+
+        trim: true,
+      },
+
+      // =====================================================
+      // EMAIL
+      // =====================================================
+      email: {
+        type: String,
+
+        required: true,
+
+        unique: true,
+
+        trim: true,
+
+        lowercase: true,
+      },
+
+      // =====================================================
+      // PASSWORD
+      // =====================================================
+      password: {
+        type: String,
+
         required: true,
       },
-      coordinates: {
-        type: [Number],
-        required: true, // [longitude, latitude]
+
+      // =====================================================
+      // PHONE
+      // =====================================================
+      phone: {
+        type: String,
+
+        default: "",
+
+        trim: true,
       },
-    },
-    monthlyVisits: {
-      type: Number,
-      default: 0,
-    },
-    lastVisitReset: {
-      type: Date,
-      default: Date.now,
-    },
 
-    email: {
-      type: String,
-      required: true,
-      unique: true,
-      lowercase: true,
-      trim: true,
-    },
-    password: {
-      type: String,
-      required: true,
-    },
-    resetPasswordToken: {
-      type: String,
-    },
+      // =====================================================
+      // IMAGES
+      // =====================================================
+      bannerImage: {
+        type: String,
 
-    resetPasswordExpire: {
-      type: Date,
+        default: "",
+      },
+
+      logoImage: {
+        type: String,
+
+        default: "",
+      },
+
+      // =====================================================
+      // ADDRESS
+      // =====================================================
+      address: {
+        type: String,
+
+        required: true,
+
+        trim: true,
+      },
+
+      city: {
+        type: String,
+
+        required: true,
+
+        trim: true,
+
+        index: true,
+      },
+
+      district: {
+        type: String,
+
+        required: true,
+
+        trim: true,
+
+        index: true,
+      },
+
+      area: {
+        type: String,
+
+        required: true,
+
+        trim: true,
+      },
+
+      // =====================================================
+      // GEO LOCATION
+      // =====================================================
+      location: {
+        type: {
+          type: String,
+
+          enum: ["Point"],
+
+          required: true,
+
+          default: "Point",
+        },
+
+        coordinates: {
+          type: [Number], // [longitude, latitude]
+
+          required: true,
+        },
+      },
+
+      // =====================================================
+      // ANALYTICS
+      // =====================================================
+      monthlyVisits: {
+        type: Number,
+
+        default: 0,
+      },
+
+      lastVisitReset: {
+        type: Date,
+
+        default: Date.now,
+      },
+
+      // =====================================================
+      // PASSWORD RESET
+      // =====================================================
+      resetPasswordToken:
+        String,
+
+      resetPasswordExpire:
+        Date,
     },
+    {
+      timestamps: true,
+    }
+  );
 
-  },
-  { timestamps: true }
-);
-sellerSchema.index({ location: "2dsphere" });
+// =====================================================
+// GEO INDEX
+// =====================================================
+sellerSchema.index({
+  location: "2dsphere",
+});
 
-
-const Seller = mongoose.model("Seller", sellerSchema);
+const Seller =
+  mongoose.model(
+    "Seller",
+    sellerSchema
+  );
 
 export default Seller;

@@ -1,224 +1,636 @@
-// Seller auth logic
-import Seller from "../models/Seller.js";
+
 import bcrypt from "bcryptjs";
-import generateToken from "../utils/generateToken.js";
+
 import crypto from "crypto";
+
+import User from "../models/User.js";
+
+import Seller from "../models/Seller.js";
+
+import generateToken from "../utils/generateToken.js";
+
 import sendEmail from "../utils/sendEmail.js";
 
-/**
- * Register Seller
- */
-export const registerSeller = async (req, res) => {
-  try {
-    const { ownerName, shopName, city, district, area, address, email, password, phone, bannerImage, logoImage, latitude,longitude } = req.body;
+// =====================================================
+// REGISTER SELLER
+// =====================================================
+export const registerSeller =
+  async (req, res) => {
+    try {
+      const {
+        ownerName,
+        shopName,
+        city,
+        district,
+        area,
+        address,
+        email,
+        password,
+        phone,
+        bannerImage,
+        logoImage,
+        latitude,
+        longitude,
+      } = req.body;
 
+      // =====================================================
+      // CHECK EXISTING SELLER
+      // =====================================================
+      const existingSeller =
+        await Seller.findOne({
+          email,
+        });
 
+      if (existingSeller) {
+        return res
+          .status(400)
+          .json({
+            message:
+              "Seller already exists",
+          });
+      }
 
-    const existingSeller = await Seller.findOne({ email });
+      // =====================================================
+      // HASH PASSWORD
+      // =====================================================
+      const hashedPassword =
+        await bcrypt.hash(
+          password,
+          10
+        );
 
-    if (existingSeller) {
-      return res.status(400).json({ message: "Email already registered" });
-    }
+      // =====================================================
+      // CREATE SELLER
+      // =====================================================
+      const seller =
+        await Seller.create({
+          ownerName,
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+          shopName,
 
-    const seller = await Seller.create({
-      ownerName,
-      shopName,
-      district,
-      city,
-      area,
-      address,
-      location: latitude && longitude
-        ? {
+          city,
+
+          district,
+
+          area,
+
+          address,
+
+          email,
+
+          password:
+            hashedPassword,
+
+          phone,
+
+          bannerImage,
+
+          logoImage,
+
+          location: {
             type: "Point",
-            coordinates: [longitude, latitude],
-          }
-        : undefined,
 
-      email,
-      password: hashedPassword,
-      phone,
-      bannerImage,
-      logoImage,
-    });
+            coordinates: [
+              parseFloat(
+                longitude || 0
+              ),
 
-    res.status(201).json({
-      _id: seller._id,
-      ownerName: seller.ownerName,
-      shopName: seller.shopName,
-      email: seller.email,
-      phone: seller.phone,
-      bannerImage: seller.bannerImage,
-      logoImage: seller.logoImage,
-      token: generateToken(seller._id),
-    });
+              parseFloat(
+                latitude || 0
+              ),
+            ],
+          },
+        });
 
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
+      // =====================================================
+      // RESPONSE
+      // =====================================================
+      res.status(201).json({
+        _id: seller._id,
 
-/**
- * Login Seller
- */
-export const loginSeller = async (req, res) => {
-  try {
-    const { email, password } = req.body;
+        name:
+          seller.ownerName,
 
-    const seller = await Seller.findOne({ email });
+        email:
+          seller.email,
 
-    if (!seller) {
-      return res.status(400).json({ message: "Invalid credentials" });
+        role: "seller",
+
+        token:
+          generateToken(
+            seller._id,
+            "seller"
+          ),
+
+        seller,
+      });
+    } catch (error) {
+      console.log(error);
+
+      res.status(500).json({
+        message:
+          "Seller registration failed",
+      });
     }
+  };
 
-    const isMatch = await bcrypt.compare(password, seller.password);
+// =====================================================
+// REGISTER BUYER
+// =====================================================
+export const registerBuyer =
+  async (req, res) => {
+    try {
+      const {
+        name,
+        email,
+        password,
+      } = req.body;
 
-    if (!isMatch) {
-      return res.status(400).json({ message: "Invalid credentials" });
+      // =====================================================
+      // CHECK EXISTING USER
+      // =====================================================
+      const existingUser =
+        await User.findOne({
+          email,
+        });
+
+      if (existingUser) {
+        return res
+          .status(400)
+          .json({
+            message:
+              "User already exists",
+          });
+      }
+
+      // =====================================================
+      // HASH PASSWORD
+      // =====================================================
+      const hashedPassword =
+        await bcrypt.hash(
+          password,
+          10
+        );
+
+      // =====================================================
+      // CREATE BUYER
+      // =====================================================
+      const user =
+        await User.create({
+          name,
+
+          email,
+
+          password:
+            hashedPassword,
+
+          role: "buyer",
+        });
+
+      // =====================================================
+      // RESPONSE
+      // =====================================================
+      res.status(201).json({
+        _id: user._id,
+
+        name: user.name,
+
+        email:
+          user.email,
+
+        role: "buyer",
+
+        token:
+          generateToken(
+            user._id,
+            "buyer"
+          ),
+      });
+    } catch (error) {
+      console.log(error);
+
+      res.status(500).json({
+        message:
+          "Buyer registration failed",
+      });
     }
+  };
 
-    res.json({
-      _id: seller._id,
-      ownerName: seller.ownerName,
-      shopName: seller.shopName,
-      email: seller.email,
-      phone: seller.phone,
-      bannerImage: seller.bannerImage,
-      logoImage: seller.logoImage,
-      token: generateToken(seller._id),
-    });
+// =====================================================
+// LOGIN USER / SELLER
+// =====================================================
+export const loginUser =
+  async (req, res) => {
+    try {
+      const {
+        email,
+        password,
+      } = req.body;
 
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
+      // =====================================================
+      // TRY BUYER LOGIN
+      // =====================================================
+      const buyer =
+        await User.findOne({
+          email,
+        });
+
+      // =====================================================
+      // BUYER FOUND
+      // =====================================================
+      if (buyer) {
+        const isMatch =
+          await bcrypt.compare(
+            password,
+            buyer.password
+          );
+
+        if (!isMatch) {
+          return res
+            .status(400)
+            .json({
+              message:
+                "Invalid credentials",
+            });
+        }
+
+        return res.json({
+          _id: buyer._id,
+
+          name:
+            buyer.name,
+
+          email:
+            buyer.email,
+
+          role: "buyer",
+
+          token:
+            generateToken(
+              buyer._id,
+              "buyer"
+            ),
+        });
+      }
+
+      // =====================================================
+      // TRY SELLER LOGIN
+      // =====================================================
+      const seller =
+        await Seller.findOne({
+          email,
+        });
+
+      if (!seller) {
+        return res
+          .status(404)
+          .json({
+            message:
+              "Account not found",
+          });
+      }
+
+      // =====================================================
+      // CHECK PASSWORD
+      // =====================================================
+      const isMatch =
+        await bcrypt.compare(
+          password,
+          seller.password
+        );
+
+      if (!isMatch) {
+        return res
+          .status(400)
+          .json({
+            message:
+              "Invalid credentials",
+          });
+      }
+
+      // =====================================================
+      // SELLER RESPONSE
+      // =====================================================
+      res.json({
+        _id: seller._id,
+
+        name:
+          seller.ownerName,
+
+        email:
+          seller.email,
+
+        role: "seller",
+
+        token:
+          generateToken(
+            seller._id,
+            "seller"
+          ),
+
+        seller,
+      });
+    } catch (error) {
+      console.log(error);
+
+      res.status(500).json({
+        message:
+          "Login failed",
+      });
+    }
+  };
+
+// =====================================================
 // GET SELLER PROFILE
-export const getSellerProfile = async (req, res) => {
-  try {
-    const seller = await Seller.findById(req.seller._id).select("-password");
-    res.json(seller);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
+// =====================================================
+export const getSellerProfile =
+  async (req, res) => {
+    try {
+      const seller =
+        await Seller.findById(
+          req.user._id
+        );
 
+      if (!seller) {
+        return res
+          .status(404)
+          .json({
+            message:
+              "Seller not found",
+          });
+      }
+
+      res.json(seller);
+    } catch (error) {
+      console.log(error);
+
+      res.status(500).json({
+        message:
+          "Failed to fetch profile",
+      });
+    }
+  };
+
+// =====================================================
 // UPDATE SELLER PROFILE
-export const updateSellerProfile = async (req, res) => {
-  try {
-    const {
-      ownerName,
-      shopName,
-      city,
-      district,
-      area,
-      address,
-      lat,
-      lng,
+// =====================================================
+export const updateSellerProfile =
+  async (req, res) => {
+    try {
+      const seller =
+        await Seller.findById(
+          req.user._id
+        );
 
-      phone,
-      bannerImage,
-      logoImage,
-    } = req.body;
+      if (!seller) {
+        return res
+          .status(404)
+          .json({
+            message:
+              "Seller not found",
+          });
+      }
 
-    const seller = await Seller.findById(req.seller._id);
+      const {
+        ownerName,
+        shopName,
+        city,
+        district,
+        area,
+        address,
+        phone,
+        bannerImage,
+        logoImage,
+        lat,
+        lng,
+      } = req.body;
 
-    if (!seller) {
-      return res.status(404).json({ message: "Seller not found" });
+      seller.ownerName =
+        ownerName ||
+        seller.ownerName;
+
+      seller.shopName =
+        shopName ||
+        seller.shopName;
+
+      seller.city =
+        city ||
+        seller.city;
+
+      seller.district =
+        district ||
+        seller.district;
+
+      seller.area =
+        area ||
+        seller.area;
+
+      seller.address =
+        address ||
+        seller.address;
+
+      seller.phone =
+        phone ||
+        seller.phone;
+
+      seller.bannerImage =
+        bannerImage ||
+        seller.bannerImage;
+
+      seller.logoImage =
+        logoImage ||
+        seller.logoImage;
+
+      // LOCATION
+      if (lat && lng) {
+        seller.location = {
+          type: "Point",
+
+          coordinates: [
+            parseFloat(lng),
+
+            parseFloat(lat),
+          ],
+        };
+      }
+
+      const updatedSeller =
+        await seller.save();
+
+      res.json(
+        updatedSeller
+      );
+    } catch (error) {
+      console.log(error);
+
+      res.status(500).json({
+        message:
+          "Profile update failed",
+      });
     }
+  };
 
-    seller.ownerName = ownerName;
-    seller.shopName = shopName;
-    seller.city = city;
-    seller.district = district;
-    seller.area = area;
-    seller.address = address;
-    seller.phone = phone;
-    seller.bannerImage = bannerImage;
-    seller.logoImage = logoImage;
-    if (lat && lng) {
-      seller.location = {
-        type: "Point",
-        coordinates: [parseFloat(lng), parseFloat(lat)],
-      };
-    }
-    const updatedSeller = await seller.save();
+// =====================================================
+// FORGOT PASSWORD
+// =====================================================
+export const forgotPassword =
+  async (req, res) => {
+    try {
+      const { email } =
+        req.body;
 
-    res.json(updatedSeller);
-  } catch (error) {
-    res.status(400).json({ message: error.message });
-  }
-};
-export const forgotPassword = async (req, res) => {
-  try {
-    const seller = await Seller.findOne({ email: req.body.email });
+      let account =
+        await User.findOne({
+          email,
+        });
 
-    if (!seller) {
-      return res.status(404).json({ message: "No account with this email" });
-    }
+      let role =
+        "buyer";
 
-    const resetToken = crypto.randomBytes(20).toString("hex");
+      if (!account) {
+        account =
+          await Seller.findOne({
+            email,
+          });
 
-    seller.resetPasswordToken = crypto
-      .createHash("sha256")
-      .update(resetToken)
-      .digest("hex");
+        role = "seller";
+      }
 
-    seller.resetPasswordExpire = Date.now() + 10 * 60 * 1000; // 10 min
+      if (!account) {
+        return res
+          .status(404)
+          .json({
+            message:
+              "No account found",
+          });
+      }
 
-    await seller.save();
+      const resetToken =
+        crypto
+          .randomBytes(20)
+          .toString("hex");
 
-    const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+      account.resetPasswordToken =
+        crypto
+          .createHash(
+            "sha256"
+          )
+          .update(resetToken)
+          .digest("hex");
 
-    const message = `
-You requested password reset.
+      account.resetPasswordExpire =
+        Date.now() +
+        10 * 60 * 1000;
 
-Click the link below:
+      await account.save();
+
+      const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+
+      const message = `
+You requested a password reset.
 
 ${resetUrl}
+`;
 
-If you did not request this, ignore this email.
-    `;
+      await sendEmail({
+        email:
+          account.email,
 
-    await sendEmail({
-      email: seller.email,
-      subject: "Password Reset",
-      message,
-    });
+        subject:
+          "Password Reset",
 
-    res.json({ message: "Reset link sent to email" });
+        message,
+      });
 
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-export const resetPassword = async (req, res) => {
-  try {
-    const resetPasswordToken = crypto
-      .createHash("sha256")
-      .update(req.params.token)
-      .digest("hex");
+      res.json({
+        message:
+          "Reset email sent",
+      });
+    } catch (error) {
+      console.log(error);
 
-    const seller = await Seller.findOne({
-      resetPasswordToken,
-      resetPasswordExpire: { $gt: Date.now() },
-    });
-
-    if (!seller) {
-      return res.status(400).json({ message: "Invalid or expired token" });
+      res.status(500).json({
+        message:
+          "Failed to send reset email",
+      });
     }
+  };
 
-    const hashedPassword = await bcrypt.hash(req.body.password, 10);
+// =====================================================
+// RESET PASSWORD
+// =====================================================
+export const resetPassword =
+  async (req, res) => {
+    try {
+      const resetPasswordToken =
+        crypto
+          .createHash(
+            "sha256"
+          )
+          .update(
+            req.params.token
+          )
+          .digest("hex");
 
-    seller.password = hashedPassword;
-    seller.resetPasswordToken = undefined;
-    seller.resetPasswordExpire = undefined;
+      let account =
+        await User.findOne({
+          resetPasswordToken,
 
-    await seller.save();
+          resetPasswordExpire:
+            {
+              $gt: Date.now(),
+            },
+        });
 
-    res.json({ message: "Password updated successfully" });
+      if (!account) {
+        account =
+          await Seller.findOne({
+            resetPasswordToken,
 
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
+            resetPasswordExpire:
+              {
+                $gt: Date.now(),
+              },
+          });
+      }
+
+      if (!account) {
+        return res
+          .status(400)
+          .json({
+            message:
+              "Invalid or expired token",
+          });
+      }
+
+      const hashedPassword =
+        await bcrypt.hash(
+          req.body.password,
+          10
+        );
+
+      account.password =
+        hashedPassword;
+
+      account.resetPasswordToken =
+        undefined;
+
+      account.resetPasswordExpire =
+        undefined;
+
+      await account.save();
+
+      res.json({
+        message:
+          "Password updated",
+      });
+    } catch (error) {
+      console.log(error);
+
+      res.status(500).json({
+        message:
+          "Password reset failed",
+      });
+    }
+  };
+

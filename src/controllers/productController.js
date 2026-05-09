@@ -139,46 +139,169 @@ export const deleteProduct = async (req, res) => {
 /**
  * Get Public Products
  */
-export const getPublicProducts = async (req, res) => {
-  try {
-    const { city, district, search, category } = req.query;
+export const getPublicProducts =
+  async (req, res) => {
+    try {
+      const {
+        city,
+        district,
+        search,
+        category,
+        lat,
+        lng,
+        radius,
+      } = req.query;
 
-    const filter = {};
+      // =====================================================
+      // PRODUCT FILTER
+      // =====================================================
+      const filter = {};
 
-    if (search) {
-      filter.name = { $regex: search, $options: "i" };
-    }
+      if (search) {
+        filter.name = {
+          $regex: search,
+          $options: "i",
+        };
+      }
 
-    if (category) {
-      filter.category = category;
-    }
+      if (category) {
+        filter.category =
+          category;
+      }
 
-    let products = await Product.find(filter)
-      .populate("seller", "shopName city district area")
-      .sort({ createdAt: -1 });
+      // =====================================================
+      // FETCH PRODUCTS
+      // =====================================================
+      let products =
+        await Product.find(
+          filter
+        )
+          .populate(
+            "seller",
+            "shopName city district area location"
+          )
+          .sort({
+            createdAt: -1,
+          });
 
-    // Filter by city
-    if (city) {
-      products = products.filter(
-        (product) =>
-          product.seller.city?.toLowerCase() === city.toLowerCase()
+      // =====================================================
+      // CITY FILTER
+      // =====================================================
+      if (city) {
+        products =
+          products.filter(
+            (
+              product
+            ) =>
+              product.seller?.city
+                ?.toLowerCase() ===
+              city.toLowerCase()
+          );
+      }
+
+      // =====================================================
+      // DISTRICT FILTER
+      // =====================================================
+      if (district) {
+        products =
+          products.filter(
+            (
+              product
+            ) =>
+              product.seller?.district
+                ?.toLowerCase() ===
+              district.toLowerCase()
+          );
+      }
+
+      // =====================================================
+      // NEARBY FILTER
+      // =====================================================
+      if (
+        lat &&
+        lng
+      ) {
+        // radius in meters
+        const maxDistance =
+          parseInt(
+            radius
+          ) || 30000;
+
+        // =====================================================
+        // FIND NEARBY SELLERS
+        // =====================================================
+        const nearbySellers =
+          await Seller.find(
+            {
+              location: {
+                $near: {
+                  $geometry:
+                    {
+                      type:
+                        "Point",
+
+                      coordinates:
+                        [
+                          parseFloat(
+                            lng
+                          ),
+
+                          parseFloat(
+                            lat
+                          ),
+                        ],
+                    },
+
+                  $maxDistance:
+                    maxDistance,
+                },
+              },
+            }
+          ).select(
+            "_id"
+          );
+
+        // =====================================================
+        // SELLER IDS
+        // =====================================================
+        const nearbySellerIds =
+          nearbySellers.map(
+            (
+              seller
+            ) =>
+              seller._id.toString()
+          );
+
+        // =====================================================
+        // FILTER PRODUCTS
+        // =====================================================
+        products =
+          products.filter(
+            (
+              product
+            ) =>
+              nearbySellerIds.includes(
+                product.seller._id.toString()
+              )
+          );
+      }
+
+      // =====================================================
+      // RESPONSE
+      // =====================================================
+      res.json(products);
+    } catch (error) {
+      console.error(
+        "PUBLIC PRODUCTS ERROR:",
+        error
       );
+
+      res.status(500).json({
+        message:
+          error.message,
+      });
     }
-
-    // Filter by district
-    if (district) {
-      products = products.filter(
-        (product) =>
-          product.seller.district?.toLowerCase() === district.toLowerCase()
-      );
-    }
-
-    res.json(products);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
+  };
 /**
  * Get Products By Seller (Public Shop Page)
  */
